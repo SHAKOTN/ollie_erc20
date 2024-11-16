@@ -11,6 +11,7 @@ contract OllieCoin is ERC20, Ownable {
         uint256 balance;
     }
     // State variables
+
     mapping(address => uint256) private lastClaimedPeriod;
     mapping(address => Checkpoint[]) private userCheckpoints;
     mapping(uint256 => IERC20) public periodRewardTokens;
