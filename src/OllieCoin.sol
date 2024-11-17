@@ -62,6 +62,8 @@ contract OllieCoin is ERC20, Ownable {
         return checkpoints[low].period <= period ? checkpoints[low].balance : 0;
     }
 
+    /// @notice Get the total supply at a specific period
+    /// @param period The period to query
     function totalSupplyAt(uint256 period) public view returns (uint256) {
         if (totalSupplyCheckpoints.length == 0) return 0;
 
@@ -77,21 +79,20 @@ contract OllieCoin is ERC20, Ownable {
                 high = mid - 1;
             }
         }
-
-        return totalSupplyCheckpoints[low].period <= period ?
-            totalSupplyCheckpoints[low].balance : 0;
+        // Return the balance at the checkpoint if it is before or at the period
+        return totalSupplyCheckpoints[low].period <= period ? totalSupplyCheckpoints[low].balance : 0;
     }
 
     /// @notice Distribute rewards to users and increment the period
     /// @dev This function is O(1) since it only stores the reward token and period and transfers the tokens
     /// @param token The reward token to distribute
     /// @param amount The amount of tokens to distribute
-
     function distribute(ERC20 token, uint256 amount) external onlyOwner {
         if (amount == 0) revert InvalidAmount();
+        // Increment the period before distributing rewards
         currentPeriod++;
         periodRewardTokens[currentPeriod] = token;
-        distributionAmounts[currentPeriod] = amount;  // Store distribution amount
+        distributionAmounts[currentPeriod] = amount;
 
         bool success = token.transferFrom(msg.sender, address(this), amount);
         if (!success) revert TransferFailed();
@@ -102,7 +103,6 @@ contract OllieCoin is ERC20, Ownable {
     /// @notice Claim rewards for the caller, note that all rewards will be claimed
     function claim() external {
         if (currentPeriod == 0) revert NoDistributionsYet();
-
         uint256 userLastClaimed = lastClaimedPeriod[msg.sender];
         lastClaimedPeriod[msg.sender] = currentPeriod;
         for (uint256 period = userLastClaimed + 1; period <= currentPeriod; period++) {
@@ -145,10 +145,9 @@ contract OllieCoin is ERC20, Ownable {
         checkpoints.push(Checkpoint({period: currentPeriod, balance: balance}));
     }
 
+    /// @dev Write a checkpoint for the total supply
+    /// @param supply The total supply to checkpoint
     function _writeTotalSupplyCheckpoint(uint256 supply) internal {
-        totalSupplyCheckpoints.push(Checkpoint({
-            period: currentPeriod,
-            balance: supply
-        }));
+        totalSupplyCheckpoints.push(Checkpoint({period: currentPeriod, balance: supply}));
     }
 }
