@@ -4,6 +4,7 @@ pragma solidity 0.8.24;
 import {ERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/ERC20.sol";
 import {Ownable} from "../lib/openzeppelin-contracts/contracts/access/Ownable.sol";
 import {IERC20} from "../lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import {console2} from "../lib/forge-std/src/console2.sol";
 
 contract OllieCoin is ERC20, Ownable {
     struct Checkpoint {
@@ -14,8 +15,11 @@ contract OllieCoin is ERC20, Ownable {
 
     mapping(address => uint256) private lastClaimedPeriod;
     mapping(address => Checkpoint[]) private userCheckpoints;
+    // Add total supply checkpoints
+    Checkpoint[] private totalSupplyCheckpoints;
     mapping(uint256 => IERC20) public periodRewardTokens;
     uint256 public currentPeriod;
+    mapping(uint256 => uint256) public distributionAmounts;
 
     // Events
     event RewardsDistributed(uint256 indexed period, address indexed rewardToken, uint256 amount);
@@ -58,18 +62,40 @@ contract OllieCoin is ERC20, Ownable {
         return checkpoints[low].period <= period ? checkpoints[low].balance : 0;
     }
 
+    function totalSupplyAt(uint256 period) public view returns (uint256) {
+        if (totalSupplyCheckpoints.length == 0) return 0;
+
+        // Binary search for the last checkpoint before or at the period
+        uint256 low = 0;
+        uint256 high = totalSupplyCheckpoints.length - 1;
+
+        while (low < high) {
+            uint256 mid = (low + high + 1) / 2;
+            if (totalSupplyCheckpoints[mid].period <= period) {
+                low = mid;
+            } else {
+                high = mid - 1;
+            }
+        }
+
+        return totalSupplyCheckpoints[low].period <= period ?
+            totalSupplyCheckpoints[low].balance : 0;
+    }
+
     /// @notice Distribute rewards to users and increment the period
     /// @dev This function is O(1) since it only stores the reward token and period and transfers the tokens
     /// @param token The reward token to distribute
     /// @param amount The amount of tokens to distribute
+
     function distribute(ERC20 token, uint256 amount) external onlyOwner {
         if (amount == 0) revert InvalidAmount();
-        // Store reward token for this period
         currentPeriod++;
         periodRewardTokens[currentPeriod] = token;
+        distributionAmounts[currentPeriod] = amount;  // Store distribution amount
+
         bool success = token.transferFrom(msg.sender, address(this), amount);
-        // Transfer rewards first to ensure we have them
         if (!success) revert TransferFailed();
+
         emit RewardsDistributed(currentPeriod, address(token), amount);
     }
 
@@ -82,10 +108,13 @@ contract OllieCoin is ERC20, Ownable {
         for (uint256 period = userLastClaimed + 1; period <= currentPeriod; period++) {
             uint256 balance = getBalanceAtPeriod(msg.sender, period - 1);
             if (balance > 0) {
+                // Get total supply for the period because we want to distribute proportionally to the total supply
+                uint256 totalSupplyAtPeriod = totalSupplyAt(period - 1);
+                uint256 rewardAmount = (balance * distributionAmounts[period]) / totalSupplyAtPeriod;
                 IERC20 rewardToken = periodRewardTokens[period];
-                bool success = rewardToken.transfer(msg.sender, balance);
+                bool success = rewardToken.transfer(msg.sender, rewardAmount);
                 if (!success) revert TransferFailed();
-                emit RewardsClaimed(msg.sender, balance, period);
+                emit RewardsClaimed(msg.sender, rewardAmount, period);
             }
         }
     }
@@ -104,6 +133,8 @@ contract OllieCoin is ERC20, Ownable {
         if (to != address(0)) {
             _writeCheckpoint(to, balanceOf(to));
         }
+        // Update total supply checkpoint
+        _writeTotalSupplyCheckpoint(totalSupply());
     }
 
     /// @dev Write a checkpoint for a user
@@ -112,5 +143,12 @@ contract OllieCoin is ERC20, Ownable {
     function _writeCheckpoint(address user, uint256 balance) internal {
         Checkpoint[] storage checkpoints = userCheckpoints[user];
         checkpoints.push(Checkpoint({period: currentPeriod, balance: balance}));
+    }
+
+    function _writeTotalSupplyCheckpoint(uint256 supply) internal {
+        totalSupplyCheckpoints.push(Checkpoint({
+            period: currentPeriod,
+            balance: supply
+        }));
     }
 }
