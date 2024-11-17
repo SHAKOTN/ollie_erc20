@@ -33,3 +33,53 @@ When claiming:
 
 ## Testing
 Run `forge test`
+
+## Cross Chain Architecture
+Ok, so for cross chain architecture it can get way too complex if we want to build a super-UX.
+If we want to make it that users can hold tokens on chain A and then claim rewards on chain B, we will have to send lots of LZ messages.
+We will also need to track totalSupply of OllieCoin in order to distribute rewards in weighted manner.
+
+Hence, for starters, I suggest a very simple architecture: just deploy OllieCoin OFT on each chain and distribute rewards on each chain. This way, users can claim rewards on the chain they hold OllieCoin on
+and we won't need to send any messages between chains.
+Notes:
+- Each chain operates independently
+- Users bridge OllieCoin using OFT
+- Rewards distributed locally per chain
+- Claims processed on holding chain
+
+```
++----------------+     OFT bridge      +----------------+
+|   Chain A      | <----------------> |   Chain B      |
+|  +----------+  |                    |  +----------+  |
+|  |OllieCoin |  |                    |  |OllieCoin |  |
+|  |  (OFT)   |  |                    |  |  (OFT)   |  |
+|  +----------+  |                    |  +----------+  |
+|  +----------+  |                    |  +----------+  |
+|  |RewardCoin|  |                    |  |RewardCoin|  |
+|  +----------+  |                    |  +----------+  |
+|                |                    |                |
+| Local Rewards  |                    | Local Rewards  |
+| Distribution   |                    | Distribution   |
+| & Claims      |                    | & Claims      |
++----------------+                    +----------------+
+        ^                                    ^
+        |          +----------------+        |
+        |          |   Chain C      |        |
+        |          |  +----------+  |        |
+        |          |  |OllieCoin |  |        |
+        |          |  |  (OFT)   |  |        |
+        |          |  +----------+  |        |
+        |          |  +----------+  |        |
+        |          |  |RewardCoin|  |        |
+        |          |  +----------+  |        |
+        |          |                |        |
+        |          | Local Rewards  |        |
+        |          | Distribution   |        |
+        |          |  & Claims      |        |
+        |          +----------------+        |
+        |                                    |
+        +------------------------------------+
+              OFT bridge connections
+
+```
+We can ideate on this and discuss this further.

@@ -39,7 +39,7 @@ contract OllieCoin is ERC20, Ownable {
         _mint(to, amount);
     }
 
-    /// @notice Get the balance of an address at a specific period
+    /// @notice Get the balance of an address at a specific period using binary search
     /// @param user The address to query
     /// @param period The period to query
     function getBalanceAtPeriod(address user, uint256 period) public view returns (uint256) {
@@ -62,7 +62,7 @@ contract OllieCoin is ERC20, Ownable {
         return checkpoints[low].period <= period ? checkpoints[low].balance : 0;
     }
 
-    /// @notice Get the total supply at a specific period
+    /// @notice Get the total supply at a specific period using binary search
     /// @param period The period to query
     function totalSupplyAt(uint256 period) public view returns (uint256) {
         if (totalSupplyCheckpoints.length == 0) return 0;

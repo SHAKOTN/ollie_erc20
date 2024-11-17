@@ -89,4 +89,48 @@ contract TestOllieCoin is Test {
         assertEq(ollieCoin.balanceOf(user2), 0);
         assertEq(ollieCoin.balanceOf(user3), 300);
     }
+
+    function testDistributeRewards(uint256 _amount) public {
+        _amount = bound(_amount, 100, 100_000_000e18);
+        vm.startPrank(ollie);
+        rewardCoin.mint(ollie, _amount);
+        ollieCoin.distribute(rewardCoin, _amount);
+        vm.stopPrank();
+        assertEq(ollieCoin.currentPeriod(), 1);
+        assertEq(rewardCoin.balanceOf(address(ollieCoin)), _amount);
+    }
+
+    /// @dev Test getBalanceAtPeriod function
+    function testGetBalanceAtPeriod(uint256 _amount) public {
+        _amount = bound(_amount, 100, 100_000_000e18);
+        vm.startPrank(ollie);
+        ollieCoin.mint(user1, 100);
+
+        rewardCoin.mint(ollie, _amount);
+
+        // Distribute rewards multiple times to bump the period. But for user data it means that user doesn't have any
+        // checkpoints, however, get balance of user for period 4 should still return 100
+        ollieCoin.distribute(rewardCoin, _amount / 4);
+        ollieCoin.distribute(rewardCoin, _amount / 4);
+        ollieCoin.distribute(rewardCoin, _amount / 4);
+        vm.stopPrank();
+        assertEq(ollieCoin.getBalanceAtPeriod(user1, 4), 100);
+    }
+
+    /// @dev Same as above but tracking total supply
+    function testTotalSupplyAt(uint256 _amount) public {
+        _amount = bound(_amount, 100, 100_000_000e18);
+        vm.startPrank(ollie);
+        ollieCoin.mint(user1, 100);
+
+        rewardCoin.mint(ollie, _amount);
+
+        // Distribute rewards multiple times to bump the period. But for user data it means that user doesn't have any
+        // checkpoints, however, get total supply for period 4 should still return 100
+        ollieCoin.distribute(rewardCoin, _amount / 4);
+        ollieCoin.distribute(rewardCoin, _amount / 4);
+        ollieCoin.distribute(rewardCoin, _amount / 4);
+        vm.stopPrank();
+        assertEq(ollieCoin.totalSupplyAt(4), 100);
+    }
 }
